@@ -1,0 +1,30 @@
+name: Autograding Tests
+'on':
+- push
+- workflow_dispatch
+- repository_dispatch
+permissions:
+  checks: write
+  actions: read
+  contents: read
+jobs:
+  run-autograding-tests:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-classroom[bot]'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Maven package
+      id: maven-package
+      uses: education/autograding-command-grader@v1
+      with:
+        test-name: Maven package
+        setup-command: ''
+        command: mvn package
+        timeout: 10
+    - name: Autograding Reporter
+      uses: education/autograding-grading-reporter@v1
+      env:
+        MAVEN-PACKAGE_RESULTS: "${{steps.maven-package.outputs.result}}"
+      with:
+        runners: maven-package
