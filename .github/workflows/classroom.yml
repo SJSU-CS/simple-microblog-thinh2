@@ -14,6 +14,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+    - name: Setup java 
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
     - name: Maven package
       id: maven-package
       uses: education/autograding-command-grader@v1
@@ -21,6 +26,14 @@ jobs:
         test-name: Maven package
         setup-command: ''
         command: mvn -ntp package
+        timeout: 10
+    - name: hostname check
+      id: hostname-check
+      uses: education/autograding-command-grader@v1
+      with:
+        test-name: host-check
+        setup-command: ''
+        command: ls hostname
         timeout: 10
     - name: Autograding Reporter
       uses: education/autograding-grading-reporter@v1
