@@ -1,6 +1,9 @@
 package edu.sjsu.cmpe272.simpleblog.server.controller;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Data;
 import lombok.Setter;
 
@@ -18,5 +21,6 @@ public class ListMessageResponse {
         private final String signature;
     }
 
+    @JsonValue
     private final List<MessageResponse> responseList;
 }
