@@ -41,7 +41,9 @@ import java.util.Date;
 @Command
 public class ClientApplication implements CommandLineRunner, ExitCodeGenerator {
 
-  private static WebClient webClient = WebClient.create("http://127.0.0.1:8080");
+  private static String remoteServer = "https://thinhproject.hopto.org/";
+  private static String localServer = "http://127.0.0.1:8080";
+  private static WebClient webClient = WebClient.create(remoteServer);
 
   private static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mmXXX");
 
