@@ -17,7 +17,7 @@ public class MessageModel {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    //private Date date;
+    private String date;
     private String message;
     private String attachment;
     private String signature;

@@ -64,6 +64,11 @@
             <artifactId>guava</artifactId>
             <version>32.1.3-jre</version>
         </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>1.72</version>
+        </dependency>
 
     </dependencies>
 
@@ -78,30 +83,7 @@
                     </image>
                 </configuration>
             </plugin>
-                <!-- Add Maven Exec Plugin -->
-                <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>exec-maven-plugin</artifactId>
-                    <version>3.2.0</version>
-                    <executions>
-                        <execution>
-                            <id>start-h2-server</id>
-                            <phase>initialize</phase>
-                            <goals>
-                                <goal>java</goal>
-                            </goals>
-                            <configuration>
-                                <mainClass>org.h2.tools.Server</mainClass>
-                                <arguments>
-                                    <argument>-tcp</argument>
-                                    <argument>-tcpAllowOthers</argument>
-                                    <argument>-ifNotExists</argument>
-                                </arguments>
-                            </configuration>
-                        </execution>
-                    </executions>
-                </plugin>
-            </plugins>
+        </plugins>
     </build>
 
 </project>

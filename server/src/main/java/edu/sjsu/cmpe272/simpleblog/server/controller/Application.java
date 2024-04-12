@@ -1,151 +1,159 @@
 package edu.sjsu.cmpe272.simpleblog.server.controller;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.hash.Hashing;
 import edu.sjsu.cmpe272.simpleblog.server.model.MessageModel;
 import edu.sjsu.cmpe272.simpleblog.server.model.UserModel;
 import edu.sjsu.cmpe272.simpleblog.server.repository.MessageRepository;
 import edu.sjsu.cmpe272.simpleblog.server.repository.UserRepository;
 import lombok.Data;
-import org.apache.catalina.User;
+
+import java.io.StringReader;
+import java.security.Signature;
 import java.util.Base64;
+
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.stereotype.Repository;
 import org.springframework.web.bind.annotation.*;
 
-import javax.crypto.Cipher;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 @Controller
 public class Application {
 
-    @Autowired
-    private MessageRepository messageRepository;
+  @Autowired private MessageRepository messageRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-    @PostMapping("/messages/create")
-    public ResponseEntity<PostMessageResponse> postMessage(@RequestBody PostMessageRequest req)  {
-        PostMessageResponse resp = new PostMessageResponse(1);
-        MessageModel tmp = new MessageModel();
-        tmp.setAttachment(req.getAttachment());
-        tmp.setUsername(req.getAuthor());
-        tmp.setMessage(req.getMessage());
-        tmp.setSignature(req.getSignature());
-        tmp = messageRepository.save(tmp);
+  @Autowired private UserRepository userRepository;
 
-        //TODO: implement signature verification
-        return ResponseEntity.ok(new PostMessageResponse(tmp.getId()));
+  static Logger logger = LoggerFactory.getLogger(Application.class);
+
+  @PostMapping("/messages/create")
+  public ResponseEntity postMessage(@RequestBody PostMessageRequest req) {
+    Optional<UserModel> user = userRepository.findByUsername(req.getAuthor());
+    if (!user.isPresent()) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN)
+          .body(new ErrorMessage("user does not existed"));
     }
 
-    private boolean verifySignature(PostMessageRequest req, String publicKeyStr) {
-        @Data
-        class VerifyMessage {
-            //private final Data date;
-            private final String author;
-            private final String message;
-            private final String attachment;
-        }
-
-        VerifyMessage msg = new VerifyMessage(req.getAuthor(), req.getMessage(), req.getAttachment());
-        String serializedMsg;
-        try {
-            serializedMsg = new ObjectMapper().writeValueAsString(msg);
-        } catch (JsonProcessingException e) {
-            System.err.println(e);
-            return false;
-        }
-
-        // SHA256 hash
-        String sha256hex = Hashing.sha256().hashString(serializedMsg, StandardCharsets.UTF_8).toString();
-
-        try {
-            // Signature check
-            Cipher encryptCipher = Cipher.getInstance("RSA");
-            PublicKey pKey = strToPublicKey(publicKeyStr);
-            encryptCipher.init(Cipher.ENCRYPT_MODE, pKey);
-            byte[] secretMessageBytes = req.getSignature().getBytes(StandardCharsets.UTF_8);)
-            byte[] encryptedMessageBytes = encryptCipher.doFinal(secretMessageBytes);
-            String encodedMessage = Base64.getEncoder().encodeToString(encryptedMessageBytes);
-
-            return sha256hex.equals(encodedMessage);
-        } catch (Exception e) {
-            System.err.println(e);
-            return false;
-        }
-
+    // Signature verification
+    if (!signatureMatched(req, user.get().getPublickey())) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN)
+          .body(new ErrorMessage("signature didn't match"));
     }
 
-    private PublicKey strToPublicKey(String publicKeyStr) throws NoSuchAlgorithmException, InvalidKeySpecException {
-        byte[] publicBytes = Base64.getDecoder().decode(publicKeyStr);
-        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicBytes);
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        PublicKey pubKey = keyFactory.generatePublic(keySpec);
-        return pubKey;
+    MessageModel messageModel = new MessageModel();
+    messageModel.setDate(req.getDate());
+    messageModel.setAttachment(req.getAttachment());
+    messageModel.setUsername(req.getAuthor());
+    messageModel.setMessage(req.getMessage());
+    messageModel.setSignature(req.getSignature());
+    messageModel = messageRepository.save(messageModel);
+    return ResponseEntity.ok(new PostMessageResponse(messageModel.getId()));
+  }
+
+  static boolean signatureMatched(PostMessageRequest req, String publicKeyStr) {
+    VerifyMessage msg = new VerifyMessage(req.getDate(), req.getAuthor(), req.getMessage(), req.getAttachment());
+    String serializedMsg;
+    try {
+      serializedMsg = new ObjectMapper().writeValueAsString(msg);
+      logger.debug(String.format("[verify-signature] serialized object %s", serializedMsg));
+    } catch (JsonProcessingException e) {
+      logger.error(e.toString());
+      return false;
     }
 
-    @PostMapping("/messages/list")
-    public ResponseEntity<ListMessageResponse> listMessage(@RequestBody ListMessageRequest req) {
-        List<ListMessageResponse.MessageResponse> result = new ArrayList<>();
+    try {
+      // Signature check
+      PublicKey publicKey = pemToPublicKey(publicKeyStr);
+      Signature signature = Signature.getInstance("SHA256withRSA");
+      signature.initVerify(publicKey);
+      signature.update(serializedMsg.getBytes());
+      return signature.verify(Base64.getDecoder().decode(req.getSignature()));
+    } catch (Exception e) {
+      logger.error(e.toString());
+      return false;
+    }
+  }
 
-        // validate request
-        /*if (req.getLimit() > 10) {
+  private static PublicKey pemToPublicKey(String pemStr)
+      throws Exception {
+    PEMParser parser = new PEMParser(new StringReader(pemStr));
+    Object obj = parser.readObject();
 
-        }*/
+    JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
+    return converter.getPublicKey(SubjectPublicKeyInfo.getInstance(obj));
+  }
 
-        if (req.getNext() == -1) {
-            //req.getNext
-        }
+  @PostMapping("/messages/list")
+  public ResponseEntity listMessage(@RequestBody ListMessageRequest req) {
+    List<ListMessageResponse.MessageResponse> result = new ArrayList<>();
 
-        LongStream.rangeClosed(req.getNext() - req.getLimit() + 1, req.getNext()).forEach(id -> {
-            messageRepository.findById(id).ifPresent(message -> {
-                result.add(new ListMessageResponse.MessageResponse(
-                        (int) message.getId(),
-                        message.getUsername(),
-                        message.getMessage(),
-                        message.getAttachment(),
-                        message.getSignature()
-                ));
+    // validate request
+    if (req.getLimit() > 10) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage("limit exceed 10"));
+    }
 
+    // TODO: fix this one
+    if (req.getNext() == -1) {
+      // req.getNext
+    }
+
+    LongStream.rangeClosed(req.getNext() - req.getLimit() + 1, req.getNext())
+        .forEach(
+            id -> {
+              messageRepository
+                  .findById(id)
+                  .ifPresent(
+                      message -> {
+                        result.add(
+                            new ListMessageResponse.MessageResponse(
+                                (int) message.getId(),
+                                message.getUsername(),
+                                message.getMessage(),
+                                message.getAttachment(),
+                                message.getSignature()));
+                      });
             });
-        });
 
-        return ResponseEntity.ok(new ListMessageResponse(result));
+    return ResponseEntity.ok(new ListMessageResponse(result));
+  }
+
+  @PostMapping("/user/create")
+  public ResponseEntity createUser(@RequestBody CreateUserRequest req) {
+    if (userRepository.findByUsername(req.getUsername()).isPresent()) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage("user existed"));
     }
 
-    @PostMapping("/user/create")
-    public ResponseEntity<CreateUserResponse> createUser(@RequestBody CreateUserRequest req) {
-        UserModel record = new UserModel();
-        record.setPublickey(req.getPublickey());
-        record.setUsername(req.getUsername());
-        userRepository.save(record);
-
-        return ResponseEntity.ok(new CreateUserResponse("welcome"));
+    logger.debug("create user ", req.getUsername());
+    UserModel record = new UserModel();
+    record.setPublickey(req.getPublickey());
+    record.setUsername(req.getUsername());
+    try {
+      userRepository.save(record);
+      return ResponseEntity.ok(new CreateUserResponse("welcome"));
+    } catch (DataAccessException e) {
+      return ResponseEntity.internalServerError().body(new ErrorMessage("failed to create user"));
     }
+  }
 
-    @GetMapping("/user/{username}/public-key")
-    public ResponseEntity<String> getPublicKey(@PathVariable("username") String username) {
-        ResponseEntity<String> resp = ResponseEntity.ok("not found");
-        Optional<UserModel> tmp = userRepository.findByUsername(username);
-        if (tmp.isPresent()) {
-            return ResponseEntity.ok(tmp.get().getPublickey());
-        }
-        return ResponseEntity.ok("not found");
+  @GetMapping("/user/{username}/public-key")
+  public ResponseEntity getPublicKey(@PathVariable("username") String username) {
+    Optional<UserModel> tmp = userRepository.findByUsername(username);
+    if (tmp.isPresent()) {
+      return ResponseEntity.ok(tmp.get().getPublickey());
     }
+    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage("user does not exist"));
+  }
 }
