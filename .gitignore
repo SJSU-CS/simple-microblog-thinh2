@@ -39,3 +39,4 @@ build/
 
 mb.ini
 tmp
+*.out

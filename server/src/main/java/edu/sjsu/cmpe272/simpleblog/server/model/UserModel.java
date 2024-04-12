@@ -9,10 +9,10 @@ import lombok.Setter;
 @Getter
 @Setter
 public class UserModel {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private long id;
 
-    private String username;
-    private String publickey;
+  private String username;
+  private String publickey;
 }

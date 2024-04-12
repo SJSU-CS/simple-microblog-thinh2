@@ -8,7 +8,7 @@ import org.springframework.context.annotation.ComponentScan;
 // do not change these base packages otherwise /ruok stops working!
 @ComponentScan(basePackages = {"edu.sjsu.cmpe", "edu.sjsu.cmpe272.simpleblog.server"})
 public class ServerApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(ServerApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(ServerApplication.class, args);
+  }
 }

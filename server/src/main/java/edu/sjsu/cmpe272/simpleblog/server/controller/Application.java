@@ -64,7 +64,8 @@ public class Application {
   }
 
   static boolean signatureMatched(PostMessageRequest req, String publicKeyStr) {
-    VerifyMessage msg = new VerifyMessage(req.getDate(), req.getAuthor(), req.getMessage(), req.getAttachment());
+    VerifyMessage msg =
+        new VerifyMessage(req.getDate(), req.getAuthor(), req.getMessage(), req.getAttachment());
     String serializedMsg;
     try {
       serializedMsg = new ObjectMapper().writeValueAsString(msg);
@@ -87,8 +88,7 @@ public class Application {
     }
   }
 
-  private static PublicKey pemToPublicKey(String pemStr)
-      throws Exception {
+  private static PublicKey pemToPublicKey(String pemStr) throws Exception {
     PEMParser parser = new PEMParser(new StringReader(pemStr));
     Object obj = parser.readObject();
 
@@ -125,7 +125,8 @@ public class Application {
                                 message.getUsername(),
                                 message.getMessage(),
                                 message.getAttachment(),
-                                message.getSignature(), message.getDate()));
+                                message.getSignature(),
+                                message.getDate()));
                       });
             });
 
@@ -156,6 +157,7 @@ public class Application {
     if (tmp.isPresent()) {
       return ResponseEntity.ok(tmp.get().getPublickey());
     }
-    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage("user does not exist"));
+    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        .body(new ErrorMessage("user does not exist"));
   }
 }

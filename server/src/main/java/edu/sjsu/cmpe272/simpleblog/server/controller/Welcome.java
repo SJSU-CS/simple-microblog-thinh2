@@ -6,8 +6,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 @Controller
 public class Welcome {
-    /*@GetMapping("/")
-    ResponseEntity<String> getWelcome() {
-        return ResponseEntity.ok("Welcome!");
-    }*/
+  @GetMapping("/")
+  ResponseEntity<String> getWelcome() {
+      return ResponseEntity.ok("Welcome!");
+  }
 }

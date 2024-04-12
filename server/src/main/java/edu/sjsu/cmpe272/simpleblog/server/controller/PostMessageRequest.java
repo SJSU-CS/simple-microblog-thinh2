@@ -6,9 +6,9 @@ import java.util.Date;
 
 @Data
 public class PostMessageRequest {
-    private String author;
-    private String attachment;
-    private String signature;
-    private String message;
-    private String date;
+  private String author;
+  private String attachment;
+  private String signature;
+  private String message;
+  private String date;
 }

@@ -1,6 +1,9 @@
 package edu.sjsu.cmpe272.simpleblog.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.logging.log4j.message.Message;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
@@ -8,6 +11,7 @@ import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.ini4j.Profile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -24,11 +28,10 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import reactor.core.publisher.Mono;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.StringReader;
-import java.io.StringWriter;
+import java.io.*;
+import java.lang.reflect.Type;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -36,6 +39,7 @@ import java.security.*;
 import java.text.SimpleDateFormat;
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
 
 @SpringBootApplication
 @Command
@@ -105,6 +109,50 @@ public class ClientApplication implements CommandLineRunner, ExitCodeGenerator {
 
     return signatureStr;
   }
+
+  private static int DEFAULT_START = -1;
+  private static int DEFAULT_COUNT = 10;
+  private static int LIST_BATCH = 10;
+  @Command
+  public int list(
+          @CommandLine.Option(names = "--starting") int start,
+          @CommandLine.Option(names = "--count") int count,
+          @CommandLine.Option(names = "--save-attachment") boolean saveAttachment) {
+
+    if (start == 0) start = DEFAULT_START;
+    if (count == 0) count = DEFAULT_COUNT;
+
+    ListMessageRequest req = new ListMessageRequest();
+    req.setNext(start);
+    req.setLimit(count);
+
+    logger.debug(String.format("list request: start %d, limit %d", start, count));
+
+    Mono<List<MessageResponse>> mono = webClient.post().uri("messages/list").bodyValue(req).retrieve().bodyToMono(new ParameterizedTypeReference<List<MessageResponse>>() {});
+    List<MessageResponse> resp = mono.block();
+
+    for (MessageResponse msg: resp) {
+      if (!saveAttachment || (saveAttachment && msg.getAttachment().equals("null"))) {
+        System.out.println(String.format("%s: %s %s says \"%s\"", msg.getId(), msg.getDate(), msg.getAuthor(), msg.getMessage()));
+        continue;
+      }
+      if (saveAttachment && !msg.getAttachment().equals("null")) {
+        String decodedString = new String(Base64.getDecoder().decode(msg.getAttachment()));
+        try {
+          FileWriter writer = new FileWriter(String.format("%d.out", msg.getId()));
+          writer.write(decodedString);
+          writer.close();
+        } catch (IOException e) {
+          System.out.printf("failed to create attachment file %s", e.getCause());
+          return 2;
+        }
+
+        System.out.println(String.format("%s: %s %s says \"%s\" \uD83D\uDCCE ", msg.getId(), msg.getDate(), msg.getAuthor(), msg.getMessage()));
+      }
+    }
+    return 0;
+  }
+
   @Command
   int create(@Parameters String id) {
     KeyPairGenerator generator = null;

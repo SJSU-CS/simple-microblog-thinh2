@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class ListMessageRequest {
-    private int next;
-    private int limit; // raise error if limit greater than 20;
+  private int next;
+  private int limit; // raise error if limit greater than 20;
 }
