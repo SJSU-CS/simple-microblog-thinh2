@@ -1,11 +1,8 @@
 package edu.sjsu.cmpe272.simpleblog.server.controller;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Data;
-import lombok.Setter;
 
 import java.util.List;
 
@@ -19,6 +16,7 @@ public class ListMessageResponse {
         private final String message;
         private final String attachment;
         private final String signature;
+        private final String date;
     }
 
     @JsonValue

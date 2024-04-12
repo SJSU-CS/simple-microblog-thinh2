@@ -105,12 +105,14 @@ public class Application {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage("limit exceed"));
     }
 
-    // TODO: fix this one
-    if (req.getNext() == -1) {
-      // req.getNext
+    int start = req.getNext();
+    int limit = req.getLimit();
+    if (start == -1) {
+      start = Math.toIntExact(messageRepository.findFirstByOrderByIdDesc().getId());
     }
+    logger.info(String.format("[message-list] from %d, limit %d", start, limit));
 
-    LongStream.rangeClosed(req.getNext() - req.getLimit() + 1, req.getNext())
+    LongStream.rangeClosed(start - limit + 1, start)
         .forEach(
             id -> {
               messageRepository
@@ -123,7 +125,7 @@ public class Application {
                                 message.getUsername(),
                                 message.getMessage(),
                                 message.getAttachment(),
-                                message.getSignature()));
+                                message.getSignature(), message.getDate()));
                       });
             });
 
