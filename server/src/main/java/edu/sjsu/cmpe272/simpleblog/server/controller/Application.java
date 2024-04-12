@@ -101,8 +101,8 @@ public class Application {
     List<ListMessageResponse.MessageResponse> result = new ArrayList<>();
 
     // validate request
-    if (req.getLimit() > 10) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage("limit exceed 10"));
+    if (req.getLimit() > 20) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage("limit exceed"));
     }
 
     // TODO: fix this one

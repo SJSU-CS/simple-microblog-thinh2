@@ -17,6 +17,7 @@ import java.security.*;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,7 +38,8 @@ class SignatureTest {
 
   @Test
   public void testSignatureCheck() throws Exception {
-    VerifyMessage message = new VerifyMessage("test-author", "test-message", "test-attachment");
+    String dateStr = (new Date()).toString();
+    VerifyMessage message = new VerifyMessage(dateStr, "test-author", "test-message", "test-attachment");
     String serializedMsg = null;
     try {
         serializedMsg = new ObjectMapper().writeValueAsString(message);
@@ -64,6 +66,7 @@ class SignatureTest {
     req.setAuthor(message.getAuthor());
     req.setAttachment(message.getAttachment());
     req.setMessage(message.getMessage());
+    req.setDate(dateStr);
     assertEquals(Application.signatureMatched(req, pemStr), true);
     }
 }
